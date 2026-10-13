@@ -1,0 +1,25 @@
+# Ishlab chiqarish uchun API tasviri. Agentlar va panel shu serverga ulanadi.
+FROM node:24-bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates tini \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# Bog'liqliklar (migratsiya va ishga tushirish uchun prisma CLI va tsx ham kerak).
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+RUN npm ci
+
+# Manba va Prisma mijozi.
+COPY packages/shared ./packages/shared
+COPY apps/api ./apps/api
+# Yig'ish paytida baza kerak emas; prisma config DATABASE_URL ni talab qilgani uchun vaqtinchalik qiymat.
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run prisma:generate -w @nwi/api
+
+COPY infra/docker/api-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 4000
+# Konteyner ichida migratsiyani qo'llab, so'ng serverni ishga tushiradi.
+ENTRYPOINT ["tini", "--", "/usr/local/bin/entrypoint.sh"]

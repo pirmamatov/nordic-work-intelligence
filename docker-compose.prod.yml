@@ -1,0 +1,60 @@
+name: nwi-prod
+
+# Ishlab chiqarish uchun. Ishga tushirish:
+#   cp .env.production.example .env.production   (va qiymatlarni to'ldiring)
+#   infra/prod/certs/ ichiga cert.pem va key.pem qo'ying
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: nwi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env.production da berilishi kerak}
+      POSTGRES_DB: nwi
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nwi -d nwi']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    # Port tashqariga ochilmaydi: bazaga faqat API ulanadi.
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    # Port tashqariga ochilmaydi: API faqat Caddy orqali ko'rinadi.
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+    environment:
+      NWI_DOMAIN: ${NWI_DOMAIN:?.env.production da berilishi kerak}
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - ./infra/prod/certs:/etc/caddy/certs:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  storage:
+  caddy-data:
+  caddy-config:

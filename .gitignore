@@ -13,3 +13,5 @@ __pycache__/
 .venv/
 build/
 e2e/out/
+!.env.production.example
+backups/

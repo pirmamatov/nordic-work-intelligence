@@ -1,0 +1,14 @@
+# Admin panelni yig'adi va Caddy orqali HTTPS bilan beradi; /api so'rovlarini API'ga uzatadi.
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/admin/package.json ./apps/admin/
+RUN npm ci
+COPY packages/shared ./packages/shared
+COPY apps/admin ./apps/admin
+RUN npm run build -w @nwi/admin
+
+FROM caddy:2.10-alpine
+COPY infra/docker/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/apps/admin/dist /srv

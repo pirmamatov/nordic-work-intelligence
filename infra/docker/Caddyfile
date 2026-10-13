@@ -1,0 +1,33 @@
+{
+	admin off
+}
+
+# Domen .env.production dagi NWI_DOMAIN dan olinadi (masalan nwi.nordic.uz).
+{$NWI_DOMAIN} {
+	# Universitetning ichki sertifikati infra/prod/certs ichiga qo'yiladi.
+	# Vaqtinchalik sinov uchun bu qatorni `tls internal` bilan almashtirish mumkin.
+	tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem
+
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+		-Server
+	}
+
+	# API so'rovlari backend konteyneriga uzatiladi.
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	# Qolgan barcha yo'llar — bitta sahifali ilova (deep-link uchun index.html).
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
