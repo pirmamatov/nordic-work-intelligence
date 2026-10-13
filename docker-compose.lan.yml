@@ -1,0 +1,10 @@
+# FAQAT SINOV UCHUN: API'ni mahalliy tarmoqdagi boshqa kompyuterlarga (Windows agent) ochadi.
+# Aloqa shifrlanmagan HTTP orqali bo'ladi — faqat ishonchli ichki tarmoqda, qisqa muddatli sinov uchun.
+# Haqiqiy joriy etishda HTTPS (reverse proxy) ishlatiladi.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d
+services:
+  api:
+    # !override: asosiy fayldagi 127.0.0.1 bog'lanishi bilan qo'shilmaydi, uning o'rnini bosadi.
+    ports: !override
+      - '0.0.0.0:4000:4000'

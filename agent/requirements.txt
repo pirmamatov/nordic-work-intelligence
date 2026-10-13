@@ -1,0 +1,5 @@
+# Agentning ishlash vaqtidagi bog'liqliklari. Versiyalar aniq mahkamlangan.
+cryptography==50.0.2
+pillow==12.3.0
+pystray==0.19.5
+tzdata==2026.5

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+apps/api/src/generated/
+apps/api/storage/
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+build/
+e2e/out/

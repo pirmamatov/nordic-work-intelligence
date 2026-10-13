@@ -1,0 +1,848 @@
+// Nordic Work Intelligence — ma'lumotlar modeli.
+// Mantiqiy tavsif: docs/DATA_MODEL.md
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Enumlar ─────────────────────────
+
+enum AgentStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum AppCategory {
+  OFFICE
+  BROWSER
+  AI
+  COMMUNICATION
+  PDF
+  DEVELOPMENT
+  SYSTEM
+  OTHER
+}
+
+enum WorkRelevance {
+  WORK
+  NEUTRAL
+  NON_WORK
+  UNCLASSIFIED
+}
+
+enum ActivityState {
+  ACTIVE
+  IDLE
+  LOCKED
+}
+
+enum DataSource {
+  AGENT
+  EXTENSION
+  MANUAL
+}
+
+enum Confidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum MonitoringStatus {
+  IN_SCHEDULE
+  OUTSIDE_SCHEDULE
+}
+
+enum TaskStatus {
+  NEW
+  PLANNED
+  IN_PROGRESS
+  IN_REVIEW
+  NEEDS_FIX
+  APPROVED
+  DONE
+  DELAYED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AssignmentRole {
+  OWNER
+  COLLABORATOR
+}
+
+enum DocumentStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  NEEDS_FIX
+  APPROVED
+}
+
+enum AiAssisted {
+  YES
+  NO
+  UNKNOWN
+}
+
+enum AiUsageSource {
+  AGENT_ACTIVITY
+  OFFICIAL_API
+  SELF_REPORT
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  CONFIRMED
+  REJECTED
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+// ───────────────────── Foydalanuvchi va ruxsatlar ─────────────────────
+
+model User {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  email              String    @unique
+  passwordHash       String
+  fullName           String
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  passwordChangedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  mfaSecretEnc       String?
+  mfaEnabledAt       DateTime? @db.Timestamptz(3)
+  mfaLastUsedStep    BigInt?
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime? @db.Timestamptz(3)
+  lastLoginAt        DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  roles              UserRole[]
+  permissions        UserPermission[]      @relation("UserPermissionUser")
+  grantedPermissions UserPermission[]      @relation("UserPermissionGrantor")
+  recoveryCodes      MfaRecoveryCode[]
+  sessions           Session[]
+  employee           EmployeeProfile?
+  headedDepartments  Department[]          @relation("DepartmentHead")
+  enrollmentCodes    AgentEnrollmentCode[]
+  tasksCreated       Task[]                @relation("TaskCreator")
+  tasksAccepted      Task[]                @relation("TaskAcceptor")
+  taskStatusChanges  TaskStatusHistory[]
+  taskComments       TaskComment[]
+  documentsCreated   Document[]            @relation("DocumentCreator")
+  documentsReviewed  Document[]            @relation("DocumentReviewer")
+  documentVersions   DocumentVersion[]
+  screenshotViews    ScreenshotView[]
+  aiSubmissions      AIResultSubmission[]  @relation("AISubmissionAuthor")
+  aiConfirmations    AIResultSubmission[]  @relation("AISubmissionConfirmer")
+  reports            Report[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  settingsUpdated    SystemSetting[]
+  scoreFormulas      ScoreFormula[]
+}
+
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  code        String   @unique
+  name        String
+  isSystem    Boolean  @default(false)
+  requiresMfa Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  code        String  @unique
+  description String
+  requiresMfa Boolean @default(false)
+
+  roles RolePermission[]
+  users UserPermission[]
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model UserPermission {
+  userId       String   @db.Uuid
+  permissionId String   @db.Uuid
+  grantedById  String?  @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  user       User       @relation("UserPermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy  User?      @relation("UserPermissionGrantor", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  codeHash  String
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+}
+
+model Session {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  userId        String    @db.Uuid
+  tokenHash     String    @unique
+  ip            String?
+  userAgent     String?
+  mfaVerifiedAt DateTime? @db.Timestamptz(3)
+  expiresAt     DateTime  @db.Timestamptz(3)
+  lastSeenAt    DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt     DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model Department {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  name       String
+  code       String   @unique
+  parentId   String?  @db.Uuid
+  headUserId String?  @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  parent    Department?        @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Department[]       @relation("DepartmentTree")
+  head      User?              @relation("DepartmentHead", fields: [headUserId], references: [id], onDelete: SetNull)
+  employees EmployeeProfile[]
+  policies  PolicyAssignment[]
+
+  @@index([parentId])
+  @@index([headUserId])
+}
+
+model EmployeeProfile {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  userId              String    @unique @db.Uuid
+  departmentId        String?   @db.Uuid
+  position            String?
+  employeeNumber      String?   @unique
+  hiredAt             DateTime? @db.Date
+  monitoringConsentAt DateTime? @db.Timestamptz(3)
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  department       Department?            @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  workstations     Workstation[]
+  enrollmentCodes  AgentEnrollmentCode[]
+  policies         PolicyAssignment[]
+  activitySessions ActivitySession[]
+  activityEvents   ActivityEvent[]
+  dailyActivity    DailyActivitySummary[]
+  dailyWork        DailyWorkSummary[]
+  screenshots      Screenshot[]
+  tasksOwned       Task[]
+  taskAssignments  TaskAssignment[]
+  aiSessions       AIUsageSession[]
+
+  @@index([departmentId])
+}
+
+// ───────────────────────── Qurilma va agent ─────────────────────────
+
+model Workstation {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  employeeId    String   @db.Uuid
+  hostname      String
+  osVersion     String?
+  machineIdHash String   @unique
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  employee      EmployeeProfile     @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  installations AgentInstallation[]
+
+  @@index([employeeId])
+}
+
+model AgentEnrollmentCode {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  codeHash    String    @unique
+  employeeId  String    @db.Uuid
+  createdById String    @db.Uuid
+  expiresAt   DateTime  @db.Timestamptz(3)
+  usedAt      DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  employee  EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([expiresAt])
+}
+
+model AgentInstallation {
+  id                String      @id @default(uuid(7)) @db.Uuid
+  workstationId     String      @db.Uuid
+  tokenHash         String      @unique
+  agentVersion      String
+  status            AgentStatus @default(ACTIVE)
+  lastSeenAt        DateTime?   @db.Timestamptz(3)
+  lastConfigVersion Int?
+  queueDepth        Int?
+  revokedAt         DateTime?   @db.Timestamptz(3)
+  createdAt         DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime    @updatedAt @db.Timestamptz(3)
+
+  workstation Workstation        @relation(fields: [workstationId], references: [id], onDelete: Restrict)
+  sessions    ActivitySession[]
+  events      ActivityEvent[]
+  screenshots Screenshot[]
+  errors      AgentErrorReport[]
+
+  @@index([workstationId])
+  @@index([status, lastSeenAt])
+}
+
+model AgentErrorReport {
+  id                  String   @id @default(uuid(7)) @db.Uuid
+  agentInstallationId String   @db.Uuid
+  code                String
+  message             String
+  occurredAt          DateTime @db.Timestamptz(3)
+  receivedAt          DateTime @default(now()) @db.Timestamptz(3)
+
+  agentInstallation AgentInstallation @relation(fields: [agentInstallationId], references: [id], onDelete: Cascade)
+
+  @@index([agentInstallationId, occurredAt])
+}
+
+model MonitoringPolicy {
+  id                    String   @id @default(uuid(7)) @db.Uuid
+  name                  String   @unique
+  // { "days": [1,2,3,4,5], "start": "09:00", "end": "18:00" } — hafta kunlari ISO (1 = dushanba)
+  workSchedule          Json
+  timezone              String   @default("Asia/Tashkent")
+  idleThresholdSec      Int      @default(300)
+  screenshotsEnabled    Boolean  @default(false)
+  screenshotIntervalSec Int      @default(600)
+  excludedProcesses     String[] @default([])
+  allowedDomains        String[] @default([])
+  version               Int      @default(1)
+  isDefault             Boolean  @default(false)
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+
+  assignments PolicyAssignment[]
+}
+
+model PolicyAssignment {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  policyId     String   @db.Uuid
+  departmentId String?  @unique @db.Uuid
+  employeeId   String?  @unique @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  policy     MonitoringPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  department Department?      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  employee   EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+}
+
+// ───────────────────────────── Faoliyat ─────────────────────────────
+
+model Application {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  processName   String        @unique
+  displayName   String
+  category      AppCategory   @default(OTHER)
+  workRelevance WorkRelevance @default(UNCLASSIFIED)
+  aiProviderId  String?       @db.Uuid
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
+
+  aiProvider    AIProvider?            @relation(fields: [aiProviderId], references: [id], onDelete: SetNull)
+  events        ActivityEvent[]
+  dailyActivity DailyActivitySummary[]
+
+  @@index([category])
+  @@index([aiProviderId])
+}
+
+model ActivitySession {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  agentInstallationId String    @db.Uuid
+  clientSessionId     String    @db.Uuid
+  employeeId          String    @db.Uuid
+  startedAt           DateTime  @db.Timestamptz(3)
+  endedAt             DateTime? @db.Timestamptz(3)
+  endReason           String?
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+
+  agentInstallation AgentInstallation @relation(fields: [agentInstallationId], references: [id], onDelete: Restrict)
+  employee          EmployeeProfile   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  events            ActivityEvent[]
+
+  @@unique([agentInstallationId, clientSessionId])
+  @@index([employeeId, startedAt])
+}
+
+// Oy bo'yicha partitsiyalangan (migratsiyada qo'lda yozilgan SQL). Partitsiya kaliti
+// startedAt bo'lgani uchun u birlamchi kalit va unikal cheklov tarkibiga kiradi.
+model ActivityEvent {
+  id                  String           @default(uuid(7)) @db.Uuid
+  agentInstallationId String           @db.Uuid
+  clientEventId       String           @db.Uuid
+  sessionId           String?          @db.Uuid
+  employeeId          String           @db.Uuid
+  applicationId       String           @db.Uuid
+  // Faqat tasdiqlangan domen; boshqa hollarda NULL.
+  domain              String?
+  startedAt           DateTime         @db.Timestamptz(3)
+  endedAt             DateTime         @db.Timestamptz(3)
+  activeSec           Int
+  idleSec             Int
+  state               ActivityState
+  source              DataSource       @default(AGENT)
+  confidence          Confidence       @default(HIGH)
+  monitoringStatus    MonitoringStatus @default(IN_SCHEDULE)
+  receivedAt          DateTime         @default(now()) @db.Timestamptz(3)
+
+  agentInstallation AgentInstallation @relation(fields: [agentInstallationId], references: [id], onDelete: Restrict)
+  session           ActivitySession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  employee          EmployeeProfile   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  application       Application       @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@id([id, startedAt])
+  @@unique([agentInstallationId, clientEventId, startedAt])
+  @@index([employeeId, startedAt])
+  @@index([applicationId, startedAt])
+}
+
+model DailyActivitySummary {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  employeeId    String   @db.Uuid
+  // Tashkilot vaqt zonasidagi kalendar kuni.
+  date          DateTime @db.Date
+  applicationId String   @db.Uuid
+  activeSec     Int      @default(0)
+  idleSec       Int      @default(0)
+  eventCount    Int      @default(0)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  employee    EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  application Application     @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, date, applicationId])
+  @@index([date])
+  @@index([applicationId, date])
+}
+
+model DailyWorkSummary {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  employeeId  String    @db.Uuid
+  date        DateTime  @db.Date
+  observedSec Int       @default(0)
+  activeSec   Int       @default(0)
+  idleSec     Int       @default(0)
+  firstSeenAt DateTime? @db.Timestamptz(3)
+  lastSeenAt  DateTime? @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+model Screenshot {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  agentInstallationId String    @db.Uuid
+  clientCaptureId     String    @db.Uuid
+  employeeId          String    @db.Uuid
+  capturedAt          DateTime  @db.Timestamptz(3)
+  storageKey          String
+  encKeyWrapped       String
+  sha256              String
+  sizeBytes           Int
+  expiresAt           DateTime  @db.Timestamptz(3)
+  deletedAt           DateTime? @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+
+  agentInstallation AgentInstallation @relation(fields: [agentInstallationId], references: [id], onDelete: Restrict)
+  employee          EmployeeProfile   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  views             ScreenshotView[]
+
+  @@unique([agentInstallationId, clientCaptureId])
+  @@index([employeeId, capturedAt])
+  @@index([expiresAt])
+}
+
+model ScreenshotView {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  screenshotId String   @db.Uuid
+  viewerId     String   @db.Uuid
+  ip           String?
+  viewedAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  screenshot Screenshot @relation(fields: [screenshotId], references: [id], onDelete: Cascade)
+  viewer     User       @relation(fields: [viewerId], references: [id], onDelete: Restrict)
+
+  @@index([screenshotId, viewedAt])
+  @@index([viewerId, viewedAt])
+}
+
+// ───────────────────── Topshiriq va akkreditatsiya ─────────────────────
+
+model AccreditationCriterion {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  code        String   @unique
+  title       String
+  description String?
+  direction   String?
+  parentId    String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  parent   AccreditationCriterion?  @relation("CriterionTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children AccreditationCriterion[] @relation("CriterionTree")
+  tasks    Task[]
+
+  @@index([parentId])
+}
+
+model Task {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  title          String
+  description    String?
+  direction      String?
+  criterionId    String?      @db.Uuid
+  ownerId        String       @db.Uuid
+  createdById    String       @db.Uuid
+  dueAt          DateTime     @db.Timestamptz(3)
+  priority       TaskPriority @default(MEDIUM)
+  expectedResult String?
+  progressPct    Int          @default(0)
+  status         TaskStatus   @default(NEW)
+  delayReason    String?
+  acceptedById   String?      @db.Uuid
+  acceptedAt     DateTime?    @db.Timestamptz(3)
+  completedAt    DateTime?    @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(3)
+
+  criterion     AccreditationCriterion? @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  owner         EmployeeProfile         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy     User                    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  acceptedBy    User?                   @relation("TaskAcceptor", fields: [acceptedById], references: [id], onDelete: Restrict)
+  assignments   TaskAssignment[]
+  statusHistory TaskStatusHistory[]
+  comments      TaskComment[]
+  documents     Document[]
+  aiSessions    AIUsageSession[]
+  aiSubmissions AIResultSubmission[]
+
+  @@index([status, dueAt])
+  @@index([ownerId])
+  @@index([criterionId])
+}
+
+model TaskAssignment {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  taskId     String         @db.Uuid
+  employeeId String         @db.Uuid
+  role       AssignmentRole @default(COLLABORATOR)
+  createdAt  DateTime       @default(now()) @db.Timestamptz(3)
+
+  task     Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, employeeId])
+  @@index([employeeId])
+}
+
+model TaskStatusHistory {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  taskId      String      @db.Uuid
+  fromStatus  TaskStatus?
+  toStatus    TaskStatus
+  changedById String      @db.Uuid
+  comment     String?
+  changedAt   DateTime    @default(now()) @db.Timestamptz(3)
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  changedBy User @relation(fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([taskId, changedAt])
+}
+
+model TaskComment {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  taskId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+}
+
+model Document {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  taskId       String         @db.Uuid
+  title        String
+  kind         String?
+  createdById  String         @db.Uuid
+  status       DocumentStatus @default(DRAFT)
+  reviewerId   String?        @db.Uuid
+  reviewedAt   DateTime?      @db.Timestamptz(3)
+  reviewNote   String?
+  // Tekshiruvchi qo'ygan sifat bahosi, 1–5. Baholanmagan bo'lsa NULL.
+  qualityScore Int?
+  aiAssisted   AiAssisted     @default(UNKNOWN)
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(3)
+
+  task          Task                 @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  createdBy     User                 @relation("DocumentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewer      User?                @relation("DocumentReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  versions      DocumentVersion[]
+  aiSubmissions AIResultSubmission[]
+
+  @@index([taskId, status])
+  @@index([createdById])
+}
+
+model DocumentVersion {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  documentId    String   @db.Uuid
+  versionNo     Int
+  sha256        String
+  storageKey    String
+  // Fayl kaliti, asosiy kalit bilan o'ralgan (fayl diskda shifrlangan holda saqlanadi).
+  encKeyWrapped String
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  uploadedById  String   @db.Uuid
+  note          String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, versionNo])
+  // Bir xil mazmunni qayta yuklash yangi versiya yaratmaydi.
+  @@unique([documentId, sha256])
+}
+
+// ───────────────────────────── AI vositalari ─────────────────────────────
+
+model AIProvider {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  code         String   @unique
+  name         String
+  isApproved   Boolean  @default(false)
+  processNames String[] @default([])
+  domains      String[] @default([])
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  applications Application[]
+  sessions     AIUsageSession[]
+}
+
+model AIUsageSession {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  employeeId  String        @db.Uuid
+  providerId  String        @db.Uuid
+  taskId      String?       @db.Uuid
+  startedAt   DateTime      @db.Timestamptz(3)
+  endedAt     DateTime      @db.Timestamptz(3)
+  // Manba ishonchli qiymat bermasa NULL ("Aniqlanmadi"), nol emas.
+  activeSec   Int?
+  source      AiUsageSource
+  confidence  Confidence    @default(MEDIUM)
+  externalRef String?
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+
+  employee    EmployeeProfile      @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  provider    AIProvider           @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  task        Task?                @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  events      AIUsageEvent[]
+  submissions AIResultSubmission[]
+
+  @@unique([providerId, source, externalRef])
+  @@index([employeeId, startedAt])
+  @@index([taskId])
+}
+
+model AIUsageEvent {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  sessionId  String   @db.Uuid
+  type       String
+  occurredAt DateTime @db.Timestamptz(3)
+  // Faqat ruxsat etilgan metama'lumot; suhbat mazmuni saqlanmaydi.
+  metadata   Json?
+
+  session AIUsageSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, occurredAt])
+}
+
+model AIResultSubmission {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  sessionId     String?          @db.Uuid
+  taskId        String           @db.Uuid
+  documentId    String?          @db.Uuid
+  submittedById String           @db.Uuid
+  summary       String
+  status        SubmissionStatus @default(SUBMITTED)
+  confirmedById String?          @db.Uuid
+  confirmedAt   DateTime?        @db.Timestamptz(3)
+  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
+
+  session     AIUsageSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  task        Task            @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  document    Document?       @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  submittedBy User            @relation("AISubmissionAuthor", fields: [submittedById], references: [id], onDelete: Restrict)
+  confirmedBy User?           @relation("AISubmissionConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+
+  @@index([taskId])
+  @@index([submittedById])
+}
+
+// ─────────────────────────────── Tizim ───────────────────────────────
+
+model Report {
+  id                  String   @id @default(uuid(7)) @db.Uuid
+  type                String
+  params              Json
+  periodFrom          DateTime @db.Date
+  periodTo            DateTime @db.Date
+  generatedById       String   @db.Uuid
+  generatedAt         DateTime @default(now()) @db.Timestamptz(3)
+  dataCompletenessPct Float?
+  format              String
+
+  generatedBy User @relation(fields: [generatedById], references: [id], onDelete: Restrict)
+
+  @@index([generatedById, generatedAt])
+}
+
+model Notification {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+// Faqat qo'shiladi: ilova kodi bu jadvalni yangilamaydi va o'chirmaydi.
+model AuditLog {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  actorUserId  String?      @db.Uuid
+  actorAgentId String?      @db.Uuid
+  action       String
+  entityType   String?
+  entityId     String?
+  ip           String?
+  userAgent    String?
+  outcome      AuditOutcome @default(SUCCESS)
+  diff         Json?
+  requestId    String?
+  occurredAt   DateTime     @default(now()) @db.Timestamptz(3)
+
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([entityType, entityId])
+  @@index([action, occurredAt])
+}
+
+model RetentionPolicy {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  dataType   String   @unique
+  retainDays Int
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model SystemSetting {
+  key         String   @id
+  value       Json
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model ScoreFormula {
+  id                  String   @id @default(uuid(7)) @db.Uuid
+  name                String   @unique
+  // { "onTime": 0.4, "approvedDocs": 0.2, ... } — yig'indisi 1.
+  weights             Json
+  minDataRequirements Json
+  isActive            Boolean  @default(false)
+  updatedById         String?  @db.Uuid
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}

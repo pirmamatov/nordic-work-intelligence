@@ -1,0 +1,13 @@
+[project]
+name = "nwi-agent"
+version = "0.1.0"
+description = "Nordic Work Intelligence — Windows agenti"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"

@@ -1,0 +1,53 @@
+name: nwi
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: nwi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env faylida berilishi kerak}
+      POSTGRES_DB: nwi
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nwi -d nwi']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.dev
+    command: npm run dev -w @nwi/api
+    env_file: .env
+    ports:
+      - '127.0.0.1:4000:4000'
+    volumes:
+      - .:/workspace
+      - node-modules:/workspace/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.dev
+    command: npm run dev -w @nwi/admin
+    environment:
+      API_PROXY_TARGET: http://api:4000
+      DEV_ALLOWED_HOSTS: admin
+    ports:
+      - '127.0.0.1:5173:5173'
+    volumes:
+      - .:/workspace
+      - node-modules:/workspace/node_modules
+    depends_on:
+      - api
+
+volumes:
+  db-data:
+  node-modules:
