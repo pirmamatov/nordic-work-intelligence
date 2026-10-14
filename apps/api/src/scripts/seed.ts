@@ -59,7 +59,9 @@ const user = await prisma.$transaction(async (tx) => {
       email: parsedEmail.data,
       fullName,
       passwordHash: await hashPassword(password),
-      mustChangePassword: true,
+      // Parol aniq berilgan bo'lsa (deploy sozlamasi) — o'sha parol qoladi; aks holda
+      // tasodifiy vaqtinchalik parol, birinchi kirishda almashtiriladi.
+      mustChangePassword: !provided,
       roles: { create: { roleId: role.id } },
     },
   });
@@ -79,7 +81,11 @@ console.log('');
 console.log('════════════════════════════════════════════════════════════');
 console.log('  BIRINCHI ADMINISTRATOR YARATILDI');
 console.log(`  Elektron pochta: ${user.email}`);
-if (!provided) console.log(`  Vaqtinchalik parol: ${password}`);
-console.log('  Birinchi kirishda parol almashtiriladi va MFA sozlanadi.');
+console.log(`  Parol: ${provided ? '(deploy sozlamasida berilgan)' : password}`);
+console.log(
+  provided
+    ? '  Birinchi kirishda ikki bosqichli tasdiqlash (MFA) sozlanadi.'
+    : '  Birinchi kirishda parol almashtiriladi va MFA sozlanadi.',
+);
 console.log('  Bu parolni xavfsiz joyga ko‘chirib oling.');
 console.log('════════════════════════════════════════════════════════════');

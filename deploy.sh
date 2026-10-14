@@ -21,6 +21,9 @@ DB_HOST="localhost"
 DB_PORT="5432"
 FILES_DIR="/mnt/work-intelligence-files"
 ORG_TIMEZONE="Asia/Tashkent"
+# Birinchi superadmin (faqat birinchi deployda yaratiladi). Muhit o'zgaruvchisi bilan almashtirsa bo'ladi.
+SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL:-ogabek@nordic.uz}"
+SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-1234567890nordic!}"
 NODE_MAJOR="24"
 SERVICE_NAME="work-intelligence"
 
@@ -110,7 +113,7 @@ log "Baza migratsiyalari qo'llanmoqda"
 npm run --silent migrate:deploy -w @nwi/api
 
 log "Rollar/ruxsatlar va administrator (seed)"
-npm run --silent seed -w @nwi/api
+SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" npm run --silent seed -w @nwi/api
 
 log "Admin panel yig'ilmoqda"
 npm run --silent build -w @nwi/admin
