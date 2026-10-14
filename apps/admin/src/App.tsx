@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createBrowserRouter, Link, RouterProvider } from 'react-router';
 import { useAuth } from '@/auth/AuthContext';
 import { Layout } from '@/components/Layout';
+import { NotificationsPage } from '@/pages/Notifications';
 import { Empty, ErrorState, Loading } from '@/components/States';
 import {
   ForcedMfaSetupScreen,
@@ -57,12 +58,7 @@ const router = createBrowserRouter([
           Component: (await import('@/pages/Accreditation')).AccreditationPage,
         }),
       },
-      {
-        path: '/bildirishnomalar',
-        lazy: async () => ({
-          Component: (await import('@/pages/Notifications')).NotificationsPage,
-        }),
-      },
+      { path: '/bildirishnomalar', element: <NotificationsPage /> },
       {
         path: '/bolimlar',
         lazy: async () => ({ Component: (await import('@/pages/Departments')).DepartmentsPage }),

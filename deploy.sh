@@ -43,13 +43,19 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq curl ca-certificates gnupg git openssl postgresql-client nginx >/dev/null
 
-if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt "$NODE_MAJOR" ]; then
-  log "Node.js ${NODE_MAJOR} o'rnatilmoqda"
+# Tizim bo'yicha Node kerak: systemd xizmati nvm ostidagi (/root/.nvm/...) node'ni
+# ishlata olmaydi. Shuning uchun /usr/bin/node tekshiriladi, nvm emas.
+sys_node_major() { /usr/bin/node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
+if [ ! -x /usr/bin/node ] || [ "$(sys_node_major)" -lt "$NODE_MAJOR" ]; then
+  log "Node.js ${NODE_MAJOR} o'rnatilmoqda (tizim bo'yicha)"
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >/dev/null
   apt-get install -y -qq nodejs >/dev/null
 fi
-echo "Node: $(node -v), npm: $(npm -v)"
-NPM_BIN="$(command -v npm)"
+# Build va runtime bir xil (tizim) node/npm'dan foydalansin — nvm'dan oldinga qo'yiladi.
+export PATH="/usr/bin:$PATH"
+NODE_BIN="/usr/bin/node"
+NPM_BIN="/usr/bin/npm"
+echo "Node: $(${NODE_BIN} -v), npm: $(${NPM_BIN} -v)"
 
 # ─────────────────── 2. Fayllar papkasi ───────────────────
 log "Fayllar papkasi: $FILES_DIR"
@@ -134,6 +140,7 @@ Type=simple
 User=${APP_USER}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
+# Tizim npm orqali (/usr/bin), nvm emas: nvm ostidagi npm systemd uchun yaroqsiz edi.
 ExecStart=${NPM_BIN} run --silent start -w @nwi/api
 Restart=on-failure
 RestartSec=5
