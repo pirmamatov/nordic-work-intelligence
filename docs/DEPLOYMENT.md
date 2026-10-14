@@ -39,6 +39,7 @@ openssl rand -hex 16      # POSTGRES_PASSWORD uchun
 ```
 
 To'ldirish shart:
+
 - `NWI_DOMAIN` — domeningiz (sertifikatdagi nom bilan bir xil).
 - `ALLOWED_ORIGINS` — `https://<domeningiz>`.
 - `POSTGRES_PASSWORD` va `DATABASE_URL` dagi parol (ikkalasi bir xil).

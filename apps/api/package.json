@@ -12,6 +12,7 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "rbac:sync": "tsx src/scripts/syncRbac.ts",
+    "seed": "tsx src/scripts/seed.ts",
     "admin:create": "tsx src/scripts/createAdmin.ts",
     "trial:setup": "tsx src/scripts/trialSetup.ts",
     "retention:run": "tsx src/scripts/runRetention.ts",

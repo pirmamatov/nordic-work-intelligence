@@ -1,0 +1,22 @@
+# Nordic Work Intelligence — systemd xizmati (namuna).
+# deploy.sh buni avtomatik yaratadi va yo'llarni to'ldiradi. Bu nusxa — ma'lumot uchun.
+# O'rnatish: /etc/systemd/system/work-intelligence.service ga nusxalang, yo'llarni to'ldiring,
+# so'ng: sudo systemctl daemon-reload && sudo systemctl enable --now work-intelligence
+[Unit]
+Description=Nordic Work Intelligence API
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=APP_USER
+WorkingDirectory=/opt/work-intelligence
+EnvironmentFile=/opt/work-intelligence/.env.production
+ExecStart=/usr/bin/npm run --silent start -w @nwi/api
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ReadWritePaths=/mnt/work-intelligence-files
+
+[Install]
+WantedBy=multi-user.target

@@ -4,8 +4,8 @@ import { logger } from './lib/logger';
 import { prisma } from './lib/prisma';
 import { purgeExpiredScreenshots } from './modules/screenshots/service';
 
-const server = createApp().listen(env.PORT, () => {
-  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'API ishga tushdi');
+const server = createApp().listen(env.PORT, env.HOST, () => {
+  logger.info({ host: env.HOST, port: env.PORT, env: env.NODE_ENV }, 'API ishga tushdi');
 });
 
 // Saqlash muddati tugagan ma'lumotlar ishga tushganda va keyin har soatda tozalanadi.
