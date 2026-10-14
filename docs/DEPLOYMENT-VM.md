@@ -3,7 +3,7 @@
 Bu yo'riqnoma Ubuntu/Debian VM'ga, lokal PostgreSQL bilan o'rnatish uchun.
 HTTPS'ni asosiy serverdagi **Kerio Control** proksi boshqaradi; bu VM faqat HTTP (port 80) va ilova (port 5084) bilan ishlaydi.
 
-- Domen: **https://work-intelligence.nordicun.uz**
+- Domen: **https://work-intelligence.nordicuniversity.org**
 - Ilova porti: **5084** (faqat 127.0.0.1, nginx orqali ko'rinadi)
 - PostgreSQL: lokal — `postgres` / `root` / `work-intelligence`
 - Yuklanadigan/yuklab olinadigan fayllar: **/mnt/work-intelligence-files**
@@ -12,7 +12,7 @@ HTTPS'ni asosiy serverdagi **Kerio Control** proksi boshqaradi; bu VM faqat HTTP
 
 - VM'da PostgreSQL o'rnatilgan va ishlab turgan bo'lsin; `postgres` foydalanuvchisining paroli `root`.
 - VM'da `sudo` huquqi bo'lsin. `deploy.sh` qolgan hamma narsani (Node.js, nginx, git) o'zi o'rnatadi.
-- Kerio Control'da `work-intelligence.nordicun.uz` uchun reverse proxy VM'ning 80-portiga yo'naltirilsin (HTTPS Kerio tomonida tugaydi).
+- Kerio Control'da `work-intelligence.nordicuniversity.org` uchun reverse proxy VM'ning 80-portiga yo'naltirilsin (HTTPS Kerio tomonida tugaydi).
 
 > Huquqiy eslatma: monitoring universitet buyrug'ida belgilanib, xodimlar imzo bilan tanishtirilishi kerak. Server O'zbekiston hududida bo'lishi shart.
 
@@ -43,7 +43,7 @@ sudo ./deploy.sh
 
 **Oxirida chiqadigan administrator parolini xavfsiz joyga ko'chiring** — u faqat bir marta ko'rsatiladi.
 
-Keyin brauzerda **https://work-intelligence.nordicun.uz** ni oching, `admin@nordicun.uz` va chiqgan parol bilan kiring. Birinchi kirishda parol almashtiriladi va ikki bosqichli tasdiqlash (MFA) sozlanadi — autentifikator ilovasi kerak.
+Keyin brauzerda **https://work-intelligence.nordicuniversity.org** ni oching, `admin@nordicuniversity.org` va chiqgan parol bilan kiring. Birinchi kirishda parol almashtiriladi va ikki bosqichli tasdiqlash (MFA) sozlanadi — autentifikator ilovasi kerak.
 
 ## 2. nginx faylini qo'lda sozlash (deploy.sh o'zi qiladi, lekin kerak bo'lsa)
 
@@ -51,15 +51,15 @@ Keyin brauzerda **https://work-intelligence.nordicun.uz** ni oching, `admin@nord
 
 ```bash
 # 1. Konfiguratsiyani sites-available ichiga nusxalash
-sudo cp infra/nginx/work-intelligence.nordicun.uz.conf \
-        /etc/nginx/sites-available/work-intelligence.nordicun.uz
+sudo cp infra/nginx/work-intelligence.nordicuniversity.org.conf \
+        /etc/nginx/sites-available/work-intelligence.nordicuniversity.org
 
 # 2. Fayldagi /OPT/WORK-INTELLIGENCE o'rniga haqiqiy yo'lni yozing
 sudo sed -i 's#/OPT/WORK-INTELLIGENCE#/opt/work-intelligence#' \
-        /etc/nginx/sites-available/work-intelligence.nordicun.uz
+        /etc/nginx/sites-available/work-intelligence.nordicuniversity.org
 
 # 3. sites-enabled ga ulash (symlink)
-sudo ln -s /etc/nginx/sites-available/work-intelligence.nordicun.uz \
+sudo ln -s /etc/nginx/sites-available/work-intelligence.nordicuniversity.org \
            /etc/nginx/sites-enabled/
 
 # 4. Konfiguratsiyani tekshirish
@@ -69,7 +69,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-nginx fayli: [infra/nginx/work-intelligence.nordicun.uz.conf](../infra/nginx/work-intelligence.nordicun.uz.conf).
+nginx fayli: [infra/nginx/work-intelligence.nordicuniversity.org.conf](../infra/nginx/work-intelligence.nordicuniversity.org.conf).
 
 ## 3. Yangilanishlar (keyingi safar)
 
@@ -130,7 +130,7 @@ sudo systemctl restart work-intelligence
 cd /opt/work-intelligence && npm run agent:pubkey -w @nwi/api
 ```
 
-Agentlarni o'rnatish: [README.md](../README.md), 2-bo'lim. Ishlab chiqarishda agent HTTPS domeniga (`https://work-intelligence.nordicun.uz`) ulanadi, `--allow-http` ishlatilmaydi.
+Agentlarni o'rnatish: [README.md](../README.md), 2-bo'lim. Ishlab chiqarishda agent HTTPS domeniga (`https://work-intelligence.nordicuniversity.org`) ulanadi, `--allow-http` ishlatilmaydi.
 
 ## 6. Nosozliklar
 
@@ -141,4 +141,4 @@ Agentlarni o'rnatish: [README.md](../README.md), 2-bo'lim. Ishlab chiqarishda ag
 | Panel ochilmayapti                                | `sudo systemctl status work-intelligence` va `sudo journalctl -u work-intelligence -n 50`                                     |
 | 502 Bad Gateway (nginx)                           | Ilova 5084-portda ishlayaptimi: `curl http://127.0.0.1:5084/api/health`                                                       |
 | Admin parolini unutdim                            | `cd /opt/work-intelligence && sudo -E npm run admin:create -w @nwi/api` bilan yangi admin yarating (yoki bazadan tiklang)     |
-| Kirishda "xavfsiz bo'lmagan" xato                 | Kerio HTTPS'ni to'g'ri uzatayotganini va domen `work-intelligence.nordicun.uz` ekanini tekshiring                             |
+| Kirishda "xavfsiz bo'lmagan" xato                 | Kerio HTTPS'ni to'g'ri uzatayotganini va domen `work-intelligence.nordicuniversity.org` ekanini tekshiring                             |

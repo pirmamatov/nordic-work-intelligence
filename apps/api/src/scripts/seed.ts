@@ -11,7 +11,7 @@ import { hashPassword, passwordProblem } from '../lib/password';
 import { prisma } from '../lib/prisma';
 import { syncRbacCatalog } from '../modules/rbac/sync';
 
-const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@nordicun.uz').trim().toLowerCase();
+const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@nordicuniversity.org').trim().toLowerCase();
 const fullName = (process.env.SEED_ADMIN_NAME ?? 'Administrator').trim();
 
 await syncRbacCatalog(prisma);

@@ -12,7 +12,7 @@
 set -euo pipefail
 
 # ─────────────────────────── Sozlamalar ───────────────────────────
-DOMAIN="work-intelligence.nordicun.uz"
+DOMAIN="work-intelligence.nordicuniversity.org"
 APP_PORT="5084"
 DB_USER="postgres"
 DB_PASSWORD="root"
